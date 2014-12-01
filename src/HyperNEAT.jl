@@ -100,7 +100,7 @@ function read_cfg(filename::String)
   usg,
   up,
   xml,
-  [], # todo ports 
+  [], # todo ports
   wd
   )
 
@@ -174,7 +174,7 @@ type NeuronGene
   parameters::Vector{Float64}
 end
 
-new_neuron(;innovation=-1, ntype=:input, func=:id, parameters = []) = NeuronGene(innovation, ntype, func, parameters)
+new_neuron(;innovation=-1, ntype=:input, func=:id, parameters = [1.0, 0.0]) = NeuronGene(innovation, ntype, func, parameters)
 
 
 type SynapseGene
@@ -248,7 +248,7 @@ function mutation_add_neuron!(genome::Genome, cfg::Configuration)
     function_keys   = collect(keys(functions))
     func            = function_keys[ceil(rand() * length(function_keys))]
     cfg.innovation  = cfg.innovation + 1
-    genome.neurons  = [genome.neurons, NeuronGene(cfg.innovation, :hidden, func, [1.0])]
+    genome.neurons  = [genome.neurons, NeuronGene(cfg.innovation, :hidden, func, [1.0, 0.0])]
     neuron_index    = length(genome.neurons)
     cfg.innovation  = cfg.innovation + 1
     genome.synapses = [genome.synapses, SynapseGene(neuron_index, synapse.dest, synapse.weight, cfg.innovation, true)]
@@ -368,7 +368,7 @@ function crossover(mother::Genome, father::Genome)
     ms = filter(s->s.innovation == i, mother.synapses)
     fs = filter(s->s.innovation == i, father.synapses)
     cs = []
-    if length(ms) > 0 && length(fs) > 0 && length(ms) != 1 && length(fs) != 1
+    if length(ms) > 0 && length(fs) > 0 && length(ms) != length(fs)
       throw(HyperNEATError("crossover: Number of synapses don't match $(length(ms)) vs $(length(fs)) for innovation $i"))
     end
     if length(ms) > 0 && length(fs) > 0
@@ -470,8 +470,8 @@ function calculate_species_sizes!(population::Population)
   average_fitness = mean(fitness_values)
 
   if abs(average_fitness) > 1.0
-    for s in population.species # new size depends 
-      ss = float(sum(map(i->i.fitness, s.individuals))) 
+    for s in population.species # new size depends
+      ss = float(sum(map(i->i.fitness, s.individuals)))
       av = float(average_fitness)
       s.size = round(sum(map(i->i.fitness, s.individuals)) / average_fitness)
     end
@@ -600,6 +600,7 @@ function update_neuron!(n)
   if abs(act) > 1000
     act = (act<0)?-1000.0:1000.0
   end
+  #= println(n.parameters) =#
   n.output = n.func(n.parameters, act)
 end
 
@@ -625,13 +626,13 @@ sigmoid(x)        = 1.0 / (1.0 + exp(-x))
 id                = x->x
 
 functions = {
-:gauss => (p::Vector{Float64},v::Float64)->gauss(v, 0, p[1]),
-:sin   => (p::Vector{Float64},v::Float64)->sin(p[1]     * v),
-:cos   => (p::Vector{Float64},v::Float64)->cos(p[1]     * v),
-:ncos  => (p::Vector{Float64},v::Float64)->(-cos(p[1]   * v)),
-:tahn  => (p::Vector{Float64},v::Float64)->tanh(p[1]    * v),
-:sigm  => (p::Vector{Float64},v::Float64)->sigmoid(p[1] * v),
-:id    => (p::Vector{Float64},v::Float64)->id(v)}
+:gauss => (p::Vector{Float64}, v::Float64)->gauss(v, p[2], p[1]),
+:sin   => (p::Vector{Float64}, v::Float64)->sin(     p[1] * v + p[2]),
+:cos   => (p::Vector{Float64}, v::Float64)->cos(     p[1] * v + p[2]),
+:ncos  => (p::Vector{Float64}, v::Float64)->(-cos(   p[1] * v + p[2])),
+:tanh  => (p::Vector{Float64}, v::Float64)->tanh(    p[1] * v + p[2]),
+:sigm  => (p::Vector{Float64}, v::Float64)->sigmoid( p[1] * v + p[2]),
+:id    => (p::Vector{Float64}, v::Float64)->id(      p[1] * v + p[2])}
 
 function add_input_neuron!(cppn::CPPN,  f::Symbol, parameters::Vector{Float64})
   n = Neuron([], [], functions[f], 0.0, parameters)
