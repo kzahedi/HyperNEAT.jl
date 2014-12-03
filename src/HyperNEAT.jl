@@ -35,6 +35,7 @@ type Configuration
   xml::String
   ports::Vector{Int64}
   wd::String
+  structure::String
 end
 
 
@@ -69,6 +70,7 @@ function read_cfg(filename::String)
   up   = (get(ini,      "General",      "use plot", "false")          == "true")
   xml  = get(ini,       "General",      "xml",                    "")
   wd   = get(ini,       "General",      "working directory",      "")
+  st   = get(ini,       "General",      "structure", "neat")
 
   #ffc  = get(ini, "fitness function coefficients", "c",                                  "-1.0")
   cfg = Configuration(
@@ -101,7 +103,8 @@ function read_cfg(filename::String)
   up,
   xml,
   [], # todo ports
-  wd
+  wd,
+  st
   )
 
   return cfg
