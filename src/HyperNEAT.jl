@@ -25,6 +25,7 @@ type Configuration
   id::Int64
   life_time::Int64
   max_individuals::Int64
+  min_individuals::Int64
   yars_port::Int64
   log_dir::String
   generations::Int64
@@ -36,6 +37,7 @@ type Configuration
   ports::Vector{Int64}
   wd::String
   structure::String
+  normalise_population_size::Bool
 end
 
 
@@ -58,7 +60,9 @@ function read_cfg(filename::String)
   c4   = float(get(ini, "Speciation",   "c4",                                  -1.0))
   th   = float(get(ini, "Speciation",   "threshold",                           -1.0))
   r    = float(get(ini, "Reproduction", "r",                                   -1.0))
-  mi   = int(get(ini,   "Reproduction", "maximum number of individuals",       -1.0))
+  mai  = int(get(ini,   "Reproduction", "maximum number of individuals",        10))
+  mii  = int(get(ini,   "Reproduction", "minimum number of individuals",        10))
+  np   = (get(ini,      "Reproduction", "normalise population size", "false") == "true")
   lt   = int(get(ini,   "General",      "life time",                           -1.0))
   yp   = int(get(ini,   "General",      "yars port",                           -1.0))
   ld   = get(ini,       "General",      "log directory",                       ".")
@@ -90,10 +94,11 @@ function read_cfg(filename::String)
   c4,
   r,
   th,
-  2, # innovation number
+  10, # innovation number
   0, # global id
   lt,
-  mi,
+  mai,
+  mii,
   yp,
   ld,
   g,
@@ -104,7 +109,8 @@ function read_cfg(filename::String)
   xml,
   [], # todo ports
   wd,
-  st
+  st,
+  np
   )
 
   return cfg
@@ -205,9 +211,10 @@ type Individual
   id::Int64
   parents::(Int64, Int64)
   species_id::Int64
+  age::Int64
 end
 
-new_individual(;genomes=[], fitness=0.0, id=-1, parents=(-1,-1), species_id = -1) = Individual(genomes, fitness, id, parents, species_id)
+new_individual(;genomes=[], fitness=0.0, id=-1, parents=(-1,-1), species_id = -1, age = 0) = Individual(genomes, fitness, id, parents, species_id, age)
 
 
 type Species
@@ -512,27 +519,40 @@ function reproduce!(population::Population, cfg::Configuration)
 
   calculate_species_sizes!(population)
 
+  if cfg.normalise_population_size == true
+    sum_sizes = sum(map(s->s.size, population.species))
 
-  sum_sizes = sum(map(s->s.size, population.species))
+    for s in population.species
+      s.size = int(round(float(s.size) / float(sum_sizes) * cfg.max_individuals))
+    end
 
-  for s in population.species
-    s.size = int(round(float(s.size) / float(sum_sizes) * cfg.max_individuals))
-  end
-
-  if length(population.species) == 1
-    if population.species[1].size != cfg.max_individuals
-      population.species[1].size = cfg.max_individuals
+    if length(population.species) == 1
+      if population.species[1].size != cfg.max_individuals
+        population.species[1].size = cfg.max_individuals
+      end
+    end
+  else
+    sum_sizes = sum(map(s->s.size, population.species))
+    if sum_sizes < cfg.min_individuals
+      factor = float64(cfg.min_individuals / sum_sizes)
+      for s in populatoin.species
+        s.size = int(ceil(s.size * factor))
+      end
     end
   end
 
   individuals = []
 
   for s in population.species
-    N = ceil(cfg.r*length(s.individuals))
-    parents = s.individuals[1:N]
-    s.individuals = parents
-    if s.size > length(parents)
-      for i = 1:(s.size - length(parents))
+    N               = ceil(cfg.r*length(s.individuals))
+    parents         = s.individuals[1:N]
+    s.individuals   = filter(p->p.age < 5, parents)
+    nr_of_offspring = s.size - length(s.individuals)
+    for i in s.individuals
+      i.age = i.age + 1
+    end
+    if s.size > length(s.individuals)
+      for i = 1:nr_of_offspring
         mother        = parents[ceil(rand() * N)]
         father        = parents[ceil(rand() * N)]
 
@@ -558,10 +578,10 @@ function reproduce!(population::Population, cfg::Configuration)
 
   population.species = filter(s->s.size > 0, population.species)
 
-  #= first = new_species(individuals=[individuals[1]]) =#
-  #= population.species = [first] =#
+  first = new_species(individuals=[individuals[1]])
+  population.species = [first]
 
-  for i in individuals[1:end]
+  for i in individuals[2:end]
     found = false
     for s in population.species
       random_individual = s.individuals[int(ceil(rand() * length(s.individuals)))]
