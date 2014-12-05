@@ -535,7 +535,7 @@ function reproduce!(population::Population, cfg::Configuration)
     sum_sizes = sum(map(s->s.size, population.species))
     if sum_sizes < cfg.min_individuals
       factor = float64(cfg.min_individuals / sum_sizes)
-      for s in populatoin.species
+      for s in population.species
         s.size = int(ceil(s.size * factor))
       end
     end
