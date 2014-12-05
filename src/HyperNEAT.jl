@@ -38,6 +38,7 @@ type Configuration
   wd::String
   structure::String
   normalise_population_size::Bool
+  max_weight::Float64
 end
 
 
@@ -54,6 +55,7 @@ function read_cfg(filename::String)
   vns  = float(get(ini, "Mutation",     "value new synapse",                   -1.0))
   dw   = float(get(ini, "Mutation",     "delta weight",                        -1.0))
   dnp  = float(get(ini, "Mutation",     "neuron parameter delta",              -1.0))
+  msw  = float(get(ini, "Mutation",     "maximal synaptic weight",             10.0))
   c1   = float(get(ini, "Speciation",   "c1",                                  -1.0))
   c2   = float(get(ini, "Speciation",   "c2",                                  -1.0))
   c3   = float(get(ini, "Speciation",   "c3",                                  -1.0))
@@ -110,7 +112,8 @@ function read_cfg(filename::String)
   [], # todo ports
   wd,
   st,
-  np
+  np,
+  msw
   )
 
   return cfg
@@ -329,6 +332,7 @@ function mutation_change_synapse!(genome::Genome, cfg::Configuration)
   else
     synapse.weight =                  (2.0 * rand() - 1.0) * cfg.value_new_synapse
   end
+
   genome.synapses[synapse_index] = synapse
 end
 
@@ -457,7 +461,7 @@ function speciation_distance(g1::Genome, g2::Genome, cfg::Configuration)
   a + b + c
 end
 
-function calculate_species_sizes!(population::Population)
+function calculate_species_sizes!(population::Population, cfg::Configuration)
 
   fitness_values = []
   for s in population.species
@@ -479,23 +483,24 @@ function calculate_species_sizes!(population::Population)
 
   average_fitness = mean(fitness_values)
 
-  if abs(average_fitness) > 1.0
-    for s in population.species # new size depends
-      ss = float(sum(map(i->i.fitness, s.individuals)))
-      av = float(average_fitness)
-      s.size = round(sum(map(i->i.fitness, s.individuals)) / average_fitness)
-    end
-  else
-    for s in population.species
-      s.size = 2.0 * length(filter(i->i.fitness > average_fitness, s.individuals))
+  for s in population.species # new size depends
+    ss     = float(sum(map(i->i.fitness, s.individuals)))
+    av     = float(average_fitness)
+    s.size = maximum([cfg.max_individuals, int(round(sum(map(i->i.fitness, s.individuals)) / average_fitness))])
+  end
+
+  for s in population.species
+    if s.size > cfg.max_individuals
+      s.size = cfg.max_individuals
     end
   end
 
-  if sum(map(s->s.size, population.species)) < length(population.species)
-    for s in population.species
-      if s.size < 1
-        s.size = 1
-      end
+end
+
+function mutation_scale_weights!(genome::Genome, cfg::Configuration)
+  for s in genome.synapses
+    if abs(s.weight) > cfg.max_weight
+      s.weight = (s.weight<0:-1:1) * cfg.max_weight
     end
   end
 end
@@ -508,6 +513,7 @@ function mutate!(g::Genome, cfg::Configuration)
   mutation_add_synapse!(g, cfg)
   mutation_change_neuron!(g, cfg)
   mutation_activate_synapse!(g, cfg)
+  mutation_scale_weights!(g, cfg)
   g
 end
 
@@ -517,7 +523,7 @@ function reproduce!(population::Population, cfg::Configuration)
     s.individuals = sort(s.individuals, by=x->x.fitness, rev=true)
   end
 
-  calculate_species_sizes!(population)
+  calculate_species_sizes!(population, cfg)
 
   if cfg.normalise_population_size == true
     sum_sizes = sum(map(s->s.size, population.species))
