@@ -9,12 +9,12 @@ type Configuration
   prob_synapse_new::Float64
   prob_neuron_new::Float64
   prob_neuron_change_function::Float64
-  prob_neuron_change_parameter::Float64
+  #= prob_neuron_change_parameter::Float64 =#
   prob_deactivate_synapse::Float64
   prob_activate_synapse::Float64
   value_new_synapse::Float64
   delta_weight::Float64
-  delta_neuron_parameter::Float64
+  #= delta_neuron_parameter::Float64 =#
   c1::Float64
   c2::Float64
   c3::Float64
@@ -49,12 +49,12 @@ function read_cfg(filename::String)
   psn  = float(get(ini, "Mutation",     "probability synapse new",             -1.0))
   pnn  = float(get(ini, "Mutation",     "probability neuron new",              -1.0))
   pnc  = float(get(ini, "Mutation",     "probability neuron change function",  -1.0))
-  pcp  = float(get(ini, "Mutation",     "probability neuron change parameter", -1.0))
+  #= pcp  = float(get(ini, "Mutation",     "probability neuron change parameter", -1.0)) =#
   pds  = float(get(ini, "Mutation",     "probability deactivate synapse",      -1.0))
   pas  = float(get(ini, "Mutation",     "probability activate synapse",        -1.0))
   vns  = float(get(ini, "Mutation",     "value new synapse",                   -1.0))
   dw   = float(get(ini, "Mutation",     "delta weight",                        -1.0))
-  dnp  = float(get(ini, "Mutation",     "neuron parameter delta",              -1.0))
+  #= dnp  = float(get(ini, "Mutation",     "neuron parameter delta",              -1.0)) =#
   msw  = float(get(ini, "Mutation",     "maximal synaptic weight",             10.0))
   c1   = float(get(ini, "Speciation",   "c1",                                  -1.0))
   c2   = float(get(ini, "Speciation",   "c2",                                  -1.0))
@@ -84,12 +84,12 @@ function read_cfg(filename::String)
   psn,
   pnn,
   pnc,
-  pcp,
+  #= pcp, =#
   pds,
   pas,
   vns,
   dw,
-  dnp,
+  #= dnp, =#
   c1,
   c2,
   c3,
@@ -183,11 +183,12 @@ type NeuronGene
   innovation::Int64
   ntype::Symbol # 1 = Input Neuron, 2 = Output Neuron, 3 = Hidden Neuron
   func::Symbol
-  parameters::Vector{Float64}
+  #= parameters::Vector{Float64} =#
 end
 
-new_neuron(;innovation=-1, ntype=:input, func=:id, parameters = [1.0, 0.0]) = NeuronGene(innovation, ntype, func, parameters)
+#= new_neuron(;innovation=-1, ntype=:input, func=:id, parameters = [1.0, 0.0]) = NeuronGene(innovation, ntype, func, parameters) =#
 
+new_neuron(;innovation=-1, ntype=:input, func=:id) = NeuronGene(innovation, ntype, func)
 
 type SynapseGene
   src::Int64
@@ -286,13 +287,13 @@ function mutation_change_neuron!(genome::Genome, cfg::Configuration)
   end
 end
 
-function mutation_change_neuron_parameter!(genome::Genome, cfg::Configuration)
-  if rand() < cfg.prob_neuron_change_parameter
-    neurons           = filter(n->(n.ntype == :hidden || n.ntype == :output), genome.neurons)
-    neuron            = neurons[int(ceil(rand() * length(neurons)))]
-    neuron.parameters = map(p->p + (2.0 * rand() - 1.0) * cfg.delta_neuron_parameter, neuron.parameters)
-  end
-end
+#= function mutation_change_neuron_parameter!(genome::Genome, cfg::Configuration) =#
+  #= if rand() < cfg.prob_neuron_change_parameter =#
+    #= neurons           = filter(n->(n.ntype == :hidden || n.ntype == :output), genome.neurons) =#
+    #= neuron            = neurons[int(ceil(rand() * length(neurons)))] =#
+    #= neuron.parameters = map(p->p + (2.0 * rand() - 1.0) * cfg.delta_neuron_parameter, neuron.parameters) =#
+  #= end =#
+#= end =#
 
 function list_of_possible_synapses(genome::Genome)
   last_input_neuron       = length(filter(n->n.ntype == :input, genome.neurons))
@@ -413,7 +414,8 @@ function crossover(mother::Genome, father::Genome)
     end
 
     for n in cn
-      child.neurons = [child.neurons, NeuronGene(n.innovation, n.ntype, n.func, n.parameters)]
+      #= child.neurons = [child.neurons, NeuronGene(n.innovation, n.ntype, n.func, n.parameters)] =#
+      child.neurons = [child.neurons, NeuronGene(n.innovation, n.ntype, n.func)]
     end
   end
   child
@@ -508,7 +510,7 @@ end
 function mutate!(g::Genome, cfg::Configuration)
   mutation_deactivate_synapse!(g, cfg)
   mutation_add_neuron!(g, cfg)
-  mutation_change_neuron_parameter!(g, cfg)
+  #= mutation_change_neuron_parameter!(g, cfg) =#
   mutation_change_synapse!(g, cfg)
   mutation_add_synapse!(g, cfg)
   mutation_change_neuron!(g, cfg)
@@ -610,7 +612,7 @@ type Neuron
   weights::Vector{Float64}
   func::Function
   output::Float64
-  parameters::Vector{Float64}
+  #= parameters::Vector{Float64} =#
 end
 
 type CPPN
@@ -630,7 +632,8 @@ function update_neuron!(n)
     act = (act<0)?-1000.0:1000.0
   end
   #= println(n.parameters) =#
-  n.output = n.func(n.parameters, act)
+  #= n.output = n.func(n.parameters, act) =#
+  n.output = n.func(act)
 end
 
 function update_cppn!(cppn::CPPN, inputs::Vector{Float64})
@@ -654,29 +657,57 @@ gauss(x,x0,sigma) = exp(-(x-x0)^2 / (2.0 * sigma^2))
 sigmoid(x)        = 1.0 / (1.0 + exp(-x))
 id                = x->x
 
-functions = {
-:gauss => (p::Vector{Float64}, v::Float64)->gauss(v, p[2], p[1]),
-:sin   => (p::Vector{Float64}, v::Float64)->sin(     p[1] * v + p[2]),
-:cos   => (p::Vector{Float64}, v::Float64)->cos(     p[1] * v + p[2]),
-:ncos  => (p::Vector{Float64}, v::Float64)->(-cos(   p[1] * v + p[2])),
-:tanh  => (p::Vector{Float64}, v::Float64)->tanh(    p[1] * v + p[2]),
-:sigm  => (p::Vector{Float64}, v::Float64)->sigmoid( p[1] * v + p[2]),
-:id    => (p::Vector{Float64}, v::Float64)->id(      p[1] * v + p[2])}
+#= functions = { =#
+#= :gauss => (p::Vector{Float64}, v::Float64)->gauss(v, p[2], p[1]), =#
+#= :sin   => (p::Vector{Float64}, v::Float64)->sin(     p[1] * v + p[2]), =#
+#= :cos   => (p::Vector{Float64}, v::Float64)->cos(     p[1] * v + p[2]), =#
+#= :ncos  => (p::Vector{Float64}, v::Float64)->(-cos(   p[1] * v + p[2])), =#
+#= :tanh  => (p::Vector{Float64}, v::Float64)->tanh(    p[1] * v + p[2]), =#
+#= :sigm  => (p::Vector{Float64}, v::Float64)->sigmoid( p[1] * v + p[2]), =#
+#= :id    => (p::Vector{Float64}, v::Float64)->id(      p[1] * v + p[2])} =#
 
-function add_input_neuron!(cppn::CPPN,  f::Symbol, parameters::Vector{Float64})
-  n = Neuron([], [], functions[f], 0.0, parameters)
+#= function add_input_neuron!(cppn::CPPN,  f::Symbol, parameters::Vector{Float64}) =#
+  #= n = Neuron([], [], functions[f], 0.0, parameters) =#
+  #= cppn.inputs  = [cppn.inputs, n] =#
+  #= cppn.neurons = [cppn.neurons, n] =#
+#= end =#
+
+#= function add_output_neuron!(cppn::CPPN, f::Symbol, parameters::Vector{Float64}) =#
+  #= n = Neuron([], [], functions[f], 0.0, parameters) =#
+  #= cppn.outputs = [cppn.outputs, n] =#
+  #= cppn.neurons = [cppn.neurons, n] =#
+#= end =#
+
+#= function add_hidden_neuron!(cppn::CPPN, f::Symbol, parameters::Vector{Float64}) =#
+  #= n = Neuron([], [], functions[f], 0.0, parameters) =#
+  #= cppn.hidden  = [cppn.hidden,  n] =#
+  #= cppn.neurons = [cppn.neurons, n] =#
+#= end =#
+
+functions = {
+:gauss => (v::Float64)->gauss(v, 0.0, 1.0),
+:sin   => (v::Float64)->  sin(v),
+:nsin  => (v::Float64)->(-sin(v)),
+:cos   => (v::Float64)->  cos(v),
+:ncos  => (v::Float64)->(-cos(v)),
+:tanh  => (v::Float64)->tanh(v),
+:sigm  => (v::Float64)->sigmoid(v),
+:id    => (v::Float64)->id(v)}
+
+function add_input_neuron!(cppn::CPPN,  f::Symbol)
+  n = Neuron([], [], functions[f], 0.0)
   cppn.inputs  = [cppn.inputs, n]
   cppn.neurons = [cppn.neurons, n]
 end
 
-function add_output_neuron!(cppn::CPPN, f::Symbol, parameters::Vector{Float64})
-  n = Neuron([], [], functions[f], 0.0, parameters)
+function add_output_neuron!(cppn::CPPN, f::Symbol)
+  n = Neuron([], [], functions[f], 0.0)
   cppn.outputs = [cppn.outputs, n]
   cppn.neurons = [cppn.neurons, n]
 end
 
-function add_hidden_neuron!(cppn::CPPN, f::Symbol, parameters::Vector{Float64})
-  n = Neuron([], [], functions[f], 0.0, parameters)
+function add_hidden_neuron!(cppn::CPPN, f::Symbol)
+  n = Neuron([], [], functions[f], 0.0)
   cppn.hidden  = [cppn.hidden,  n]
   cppn.neurons = [cppn.neurons, n]
 end
@@ -690,11 +721,14 @@ function phenotype(genome::Genome)
   cppn = CPPN([], [], [], [])
   for n in genome.neurons
     if n.ntype == :input
-      add_input_neuron!(cppn, n.func, n.parameters)
+      #= add_input_neuron!(cppn, n.func, n.parameters) =#
+      add_input_neuron!(cppn, n.func)
     elseif n.ntype == :output
-      add_output_neuron!(cppn, n.func, n.parameters)
+      #= add_output_neuron!(cppn, n.func, n.parameters) =#
+      add_output_neuron!(cppn, n.func)
     elseif n.ntype == :hidden
-      add_hidden_neuron!(cppn, n.func, n.parameters)
+      #= add_hidden_neuron!(cppn, n.func, n.parameters) =#
+      add_hidden_neuron!(cppn, n.func)
     else
       throw(HyperNEATError("cppn.jl: unknown neuron type given in function phenotype(...)"))
     end
