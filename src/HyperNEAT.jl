@@ -543,16 +543,18 @@ function reproduce!(population::Population, cfg::Configuration)
     for s in population.species
       if s.size > cfg.max_individuals
         s.size = cfg.max_individuals
+      elseif s.size < cfg.min_individuals
+        s.size = cfg.min_individuals
       end
     end
 
-    sum_sizes = sum(map(s->s.size, population.species))
-    if sum_sizes < cfg.min_individuals
-      factor = float64(cfg.min_individuals / sum_sizes)
-      for s in population.species
-        s.size = int(ceil(s.size * factor))
-      end
-    end
+    #= sum_sizes = sum(map(s->s.size, population.species)) =#
+    #= if sum_sizes < cfg.min_individuals =#
+      #= factor = float64(cfg.min_individuals / sum_sizes) =#
+      #= for s in population.species =#
+        #= s.size = int(ceil(s.size * factor)) =#
+      #= end =#
+    #= end =#
   end
 
   individuals = []
