@@ -262,7 +262,8 @@ function mutation_add_neuron!(genome::Genome, cfg::Configuration)
     function_keys   = collect(keys(functions))
     func            = function_keys[ceil(rand() * length(function_keys))]
     cfg.innovation  = cfg.innovation + 1
-    genome.neurons  = [genome.neurons, NeuronGene(cfg.innovation, :hidden, func, [1.0, 0.0])]
+    #= genome.neurons  = [genome.neurons, NeuronGene(cfg.innovation, :hidden, func, [1.0, 0.0])] =#
+    genome.neurons  = [genome.neurons, NeuronGene(cfg.innovation, :hidden, func)]
     neuron_index    = length(genome.neurons)
     cfg.innovation  = cfg.innovation + 1
     genome.synapses = [genome.synapses, SynapseGene(neuron_index, synapse.dest, synapse.weight, cfg.innovation, true)]
@@ -492,11 +493,10 @@ function calculate_species_sizes!(population::Population, cfg::Configuration)
   end
 
   for s in population.species
-    if s.size > cfg.max_individuals
-      s.size = cfg.max_individuals
+    if s.size == 1
+      s.size = cfg.min_individuals
     end
   end
-
 end
 
 function mutation_scale_weights!(genome::Genome, cfg::Configuration)
@@ -540,6 +540,12 @@ function reproduce!(population::Population, cfg::Configuration)
       end
     end
   else
+    for s in population.species
+      if s.size > cfg.max_individuals
+        s.size = cfg.max_individuals
+      end
+    end
+
     sum_sizes = sum(map(s->s.size, population.species))
     if sum_sizes < cfg.min_individuals
       factor = float64(cfg.min_individuals / sum_sizes)
