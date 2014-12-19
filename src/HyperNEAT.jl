@@ -216,9 +216,10 @@ type Individual
   parents::(Int64, Int64)
   species_id::Int64
   age::Int64
+  stats::Vector{Float64}
 end
 
-new_individual(;genomes=[], fitness=0.0, id=-1, parents=(-1,-1), species_id = -1, age = 0) = Individual(genomes, fitness, id, parents, species_id, age)
+new_individual(;genomes=[], fitness=0.0, id=-1, parents=(-1,-1), species_id = -1, age = 0, stats = []) = Individual(genomes, fitness, id, parents, species_id, age, stats)
 
 
 type Species
